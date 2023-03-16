@@ -1,0 +1,54 @@
+FUDO README
+===========
+
+fudo is a wrapper for doas to translate sudo commands to doas
+commands. Because sudo provides a wider range of features on the
+command line, many sudo flags can't be converted to doas flags. For
+example, sudo's `--preserve-env` has no doas equivalent. However,
+`keepenv` or `setenv` can always be explicitly defined in `doas.conf`
+to produce the same effect.
+
+Therefore, fudo translates what flags it can and ignores those it
+can't.
+
+
+Building & Installation
+=======================
+
+While in fudo's source directory, run:
+
+    $ make
+
+Afterwards, you may install it by doing as root:
+
+    # install fudo /usr/bin/fudo
+    # ln -s /usr/bin/fudo /usr/bin/sudo
+
+
+Using fudo
+==========
+
+After installing as stated above, any `sudo` command will be converted
+to a `doas`. By default, `fudo` shows the command translation to
+stderr. For example,
+
+    $ sudo whoami
+    fudo <<< sudo whoami
+    fudo >>> /usr/bin/doas whoami
+    root
+
+You can disable this by setting the environment variable FUDO_HIDE.
+
+    $ export FUDO_HIDE=
+    $ sudo whoami
+    root
+
+
+fudo also passes the environment variables `SUDO_USER`, `SUDO_UID`,
+and `SUDO_GID` to `doas`. If you're using devtools on Arch Linux, this
+is using when doing a clean chroot build via `extra-x86_64-build`
+which takes advantage of these environment variables to ease creating
+a chroot. Therefore, in `doas.conf`, you'd want a setup similar to:
+
+    permit nopass setenv { SUDO_USER SUDO_UID SUDO_GID } foobar as root
+    permit nopass root as foobar
