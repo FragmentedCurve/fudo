@@ -43,7 +43,6 @@ You can disable this by setting the environment variable FUDO_HIDE.
     $ sudo whoami
     root
 
-
 fudo also passes the environment variables `SUDO_USER`, `SUDO_UID`,
 and `SUDO_GID` to `doas`. If you're using devtools on Arch Linux, this
 is using when doing a clean chroot build via `extra-x86_64-build`
