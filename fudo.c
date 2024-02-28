@@ -32,8 +32,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
-#include <alloca.h>
 #include <assert.h>
+#ifdef __linux__
+#include <alloca.h>
+#endif
 
 extern char **environ;
 
