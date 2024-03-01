@@ -33,9 +33,8 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <assert.h>
-#ifdef __linux__
-#include <alloca.h>
-#endif
+
+#define alloca(x) __builtin_alloca(x)
 
 extern char **environ;
 
