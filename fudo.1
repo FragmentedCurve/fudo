@@ -1,0 +1,159 @@
+.TH "fudo" "1" 
+
+.SH "NAME"
+.PP
+fudo - convert sudo commands to doas
+
+.SH "SYNOPSIS"
+.PP
+\fBfudo\fP [sudo flags]
+
+.SH "DESCRIPTION"
+.PP
+\fBfudo\fP is a wrapper for translating \fIsudo\fP commands to \fIdoas\fP
+commands. Typically, \fBfudo\fP is invoked by a symbolic link named
+\fIsudo\fP. \fBfudo\fP will then parse the arguments originally intended for
+\fIsudo\fP, translate those arguments to a \fIdoas\fP command, and then invoke
+\fIdoas\fP with the translated arguments.
+
+.PP
+Because the sudo feature set is larger than doas, most sudo commands
+can't be converted into an exact doas command. For example, sudo has a
+flag \fB--preserve-env\fP that has no doas equivalent. However, the
+\fIdoas.conf\fP options \fBkeepenv\fP and \fBsetenv\fP can be alternatively set,
+producing the same effect.
+
+.PP
+The goal of \fBfudo\fP is to help make possible, replacing \fIsudo\fP with
+\fIdoas\fP on an operating system that is built to be integrated with
+sudo. (For example, Arch Linux deploys scripts using sudo specific
+features.)  This goal is accomplished by converting as many flags as
+possible and ignoring flags that can't. Flags that can't be translated
+are left to be configured in \fIdoas.conf\fP. In order to make replacing
+\fIsudo\fP possible, the system administrator must decide how \fIdoas.conf\fP
+should be configured.
+
+.PP
+The environment variables \fISUDO_USER\fP, \fISUDO_UID\fP, and \fISUDO_GID\fP are
+always passed to \fIdoas\fP. If you're running scripts or commands that
+use these environment variables, \fIdoas.conf\fP must be configured to use
+them. For example,
+
+.RS
+.nf
+permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
+
+.fi
+.RE
+
+.PP
+Each valid sudo flag that is passed to fudo is either,
+
+.IP 1.  4
+ignored.
+.IP 2.  4
+translated to a valid doas flag.
+.IP 3.  4
+or causes fudo to exit.
+
+.PP
+The table below shows the behavior for each \fIsudo\fP flag.
+
+.TS
+ center,box;
+
+l l l .
+sudo	doas	action
+_
+-A		IGNORE
+--askpass		IGNORE
+-B		IGNORE
+--bell		IGNORE
+-b	-n	PASS
+--background	-n	PASS
+-C		IGNORE
+--close-from=		IGNORE
+-D		IGNORE
+--chdir=		IGNORE
+-E		IGNORE
+--preserve-env		IGNORE
+--preserve-env=		IGNORE
+-e		EXIT
+--edit		EXIT
+-g		IGNORE
+--group=		IGNORE
+-H		IGNORE
+-set-home		IGNORE
+--help		IGNORE
+-h		IGNORE
+--host=		IGNORE
+-i	-s	PASS
+-K		IGNORE
+--remove-timestamp		IGNORE
+-k		IGNORE
+--reset-timestamp		IGNORE
+-l		IGNORE
+--list		IGNORE
+-N		IGNORE
+--no-update		IGNORE
+-n	-n	PASS
+--non-interactive	-n	PASS
+-P		IGNORE
+--preserve-groups		IGNORE
+-p		IGNORE
+--prompt=		IGNORE
+-R		IGNORE
+--chroot=		IGNORE
+-S		IGNORE
+--stdin		IGNORE
+-s	-s	PASS
+--shell	-s	PASS
+-U		IGNORE
+--other-user=		IGNORE
+-T		IGNORE
+--command-timeout=		IGNORE
+-u	-u	PASS
+--user=	-u	PASS
+-V		IGNORE
+--version		IGNORE
+-v		IGNORE
+--validate		IGNORE
+.TE
+.TB ""
+
+
+.PP
+Flags that follow the argument \fI\-\-\fP are passed to \fIdoas\fP as-is.
+
+.SH "ENVIRONMENT"
+.PP
+By default, \fBfudo\fP prints to stderr the \fIsudo\fP command received and the
+\fIdoas\fP command to run. For example,
+
+.RS
+.nf
+$ sudo whoami
+fudo <<< sudo whoami
+fudo >>> /usr/bin/doas whoami
+root
+
+.fi
+.RE
+
+.PP
+This behavior can be disabled by setting the environment variable,
+\fIFUDO_HIDE\fP.
+
+.RS
+.nf
+$ export FUDO_HIDE=
+$ sudo whoami
+root
+
+.fi
+.RE
+
+.SH "SEE ALSO"
+.BR sudo (1),
+.BR doas (1),
+.BR doas.conf (5)
