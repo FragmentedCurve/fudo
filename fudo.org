@@ -1,0 +1,135 @@
+#+TITLE: fudo
+#+AUTHOR: Paco Pascal
+#+DATE: 2024-2-27
+#+MAN_CLASS_OPTIONS: :section-id "1"
+
+* NAME
+fudo - convert sudo commands to doas
+
+* SYNOPSIS
+*fudo* [sudo flags]
+
+* DESCRIPTION
+*fudo* is a wrapper for translating =sudo= commands to =doas=
+commands. Typically, *fudo* is invoked by a symbolic link named
+=sudo=. *fudo* will then parse the arguments originally intended for
+=sudo=, translate those arguments to a =doas= command, and then invoke
+=doas= with the translated arguments.
+
+Because the sudo feature set is larger than doas, most sudo commands
+can't be converted into an exact doas command. For example, sudo has a
+flag *--preserve-env* that has no doas equivalent. However, the
+=doas.conf= options *keepenv* and *setenv* can be alternatively set,
+producing the same effect.
+
+The goal of *fudo* is to help make possible, replacing =sudo= with
+=doas= on an operating system that is built to be integrated with
+sudo. (For example, Arch Linux deploys scripts using sudo specific
+features.)  This goal is accomplished by converting as many flags as
+possible and ignoring flags that can't. Flags that can't be translated
+are left to be configured in =doas.conf=. In order to make replacing
+=sudo= possible, the system administrator must decide how =doas.conf=
+should be configured.
+
+The environment variables =SUDO_USER=, =SUDO_UID=, and =SUDO_GID= are
+always passed to =doas=. If you're running scripts or commands that
+use these environment variables, =doas.conf= must be configured to use
+them. For example,
+
+#+BEGIN_EXAMPLE
+permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
+#+END_EXAMPLE
+
+Each valid sudo flag that is passed to fudo is either,
+
+1. ignored.
+2. translated to a valid doas flag.
+3. or causes fudo to exit.
+
+The table below shows the behavior for each =sudo= flag.
+
+| sudo               | doas | action |
+|--------------------+------+--------|
+| -A                 |      | IGNORE |
+| --askpass          |      | IGNORE |
+| -B                 |      | IGNORE |
+| --bell             |      | IGNORE |
+| -b                 | -n   | PASS   |
+| --background       | -n   | PASS   |
+| -C                 |      | IGNORE |
+| --close-from=      |      | IGNORE |
+| -D                 |      | IGNORE |
+| --chdir=           |      | IGNORE |
+| -E                 |      | IGNORE |
+| --preserve-env     |      | IGNORE |
+| --preserve-env=    |      | IGNORE |
+| -e                 |      | EXIT   |
+| --edit             |      | EXIT   |
+| -g                 |      | IGNORE |
+| --group=           |      | IGNORE |
+| -H                 |      | IGNORE |
+| -set-home          |      | IGNORE |
+| --help             |      | IGNORE |
+| -h                 |      | IGNORE |
+| --host=            |      | IGNORE |
+| -i                 | -s   | PASS   |
+| -K                 |      | IGNORE |
+| --remove-timestamp |      | IGNORE |
+| -k                 |      | IGNORE |
+| --reset-timestamp  |      | IGNORE |
+| -l                 |      | IGNORE |
+| --list             |      | IGNORE |
+| -N                 |      | IGNORE |
+| --no-update        |      | IGNORE |
+| -n                 | -n   | PASS   |
+| --non-interactive  | -n   | PASS   |
+| -P                 |      | IGNORE |
+| --preserve-groups  |      | IGNORE |
+| -p                 |      | IGNORE |
+| --prompt=          |      | IGNORE |
+| -R                 |      | IGNORE |
+| --chroot=          |      | IGNORE |
+| -S                 |      | IGNORE |
+| --stdin            |      | IGNORE |
+| -s                 | -s   | PASS   |
+| --shell            | -s   | PASS   |
+| -U                 |      | IGNORE |
+| --other-user=      |      | IGNORE |
+| -T                 |      | IGNORE |
+| --command-timeout= |      | IGNORE |
+| -u                 | -u   | PASS   |
+| --user=            | -u   | PASS   |
+| -V                 |      | IGNORE |
+| --version          |      | IGNORE |
+| -v                 |      | IGNORE |
+| --validate         |      | IGNORE |
+
+
+Flags that follow the argument =--= are passed to =doas= as-is.
+
+* ENVIRONMENT
+By default, *fudo* prints to stderr the =sudo= command received and the
+=doas= command to run. For example,
+
+#+BEGIN_EXAMPLE
+    $ sudo whoami
+    fudo <<< sudo whoami
+    fudo >>> /usr/bin/doas whoami
+    root
+#+END_EXAMPLE
+
+This behavior can be disabled by setting the environment variable,
+=FUDO_HIDE=.
+
+#+BEGIN_EXAMPLE
+    $ export FUDO_HIDE=
+    $ sudo whoami
+    root
+#+END_EXAMPLE
+
+* SEE ALSO
+#+BEGIN_MAN
+.BR sudo (1),
+.BR doas (1),
+.BR doas.conf (5)
+#+END_MAN
