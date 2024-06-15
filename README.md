@@ -1,62 +1,70 @@
-FUDO README
-===========
+# FUDO README
 
-*fudo* is a wrapper for translating `sudo` commands to `doas`
-commands. Typically, *fudo* is invoked by a symbolic link named
-`sudo`. *fudo* will then parse the arguments originally intended for
-`sudo`, translate those arguments to a `doas` command, and then invoke
-`doas` with the translated arguments.
+*fudo* is a wrapper for translating `sudo` commands to `doas` commands. Typically, *fudo* is invoked via a symbolic link named `sudo`. It parses the arguments originally intended for `sudo`, translates those arguments to a `doas` command, and then invokes `doas` with the translated arguments.
 
-Because the sudo feature set is larger than doas, most sudo commands
-can't be converted into an exact doas command. For example, sudo has a
-flag *--preserve-env* that has no doas equivalent. However, the
-`doas.conf` options *keepenv* and *setenv* can be alternatively set,
-producing the same effect.
+## Features
 
-The goal of *fudo* is to help make possible, replacing `sudo` with
-`doas` on an operating system that is built to be integrated with
-sudo. (For example, Arch Linux deploys scripts using sudo specific
-features.)  This goal is accomplished by converting as many flags as
-possible and ignoring flags that can't. Flags that can't be translated
-are left to be configured in `doas.conf`. In order to make replacing
-`sudo` possible, the system administrator must decide how `doas.conf`
-should be configured.
+Since the `sudo` feature set is larger than `doas`, not all `sudo` commands can be converted into exact `doas` commands. For instance, `sudo` has a `--preserve-env` flag with no direct `doas` equivalent. However, the `doas.conf` options `keepenv` and `setenv` can be set to produce a similar effect.
 
+The goal of *fudo* is to facilitate the replacement of `sudo` with `doas` on operating systems built to integrate with `sudo` (e.g., Arch Linux, which deploys scripts using `sudo`-specific features). This is achieved by converting as many flags as possible and ignoring the rest. Flags that can't be translated are left to be configured in `doas.conf`. The system administrator must decide how `doas.conf` should be configured to accommodate the necessary environment.
 
-Building & Installation
-=======================
+## Building & Installation
 
-While in fudo's source directory, run:
+To build *fudo*, navigate to its source directory and run:
 
-    $ make
+```sh
+make
+```
 
-Afterwards, you may install it by doing as root:
+To install *fudo* as the root user, execute:
 
-    # install fudo /usr/bin/fudo
-    # ln -s /usr/bin/fudo /usr/bin/sudo
+```sh
+install fudo /usr/bin/fudo
+ln -s /usr/bin/fudo /usr/bin/sudo
+```
 
+## Using fudo
 
-Using fudo
-==========
+Once installed, any `sudo` command will be converted to a `doas` command. By default, `fudo` displays the command translation to `stderr`. For example:
 
-After installing as stated above, any `sudo` command will be converted
-to a `doas`. By default, `fudo` shows the command translation to
-stderr. For example,
+```sh
+$ sudo whoami
+fudo <<< sudo whoami
+fudo >>> /usr/bin/doas whoami
+root
+```
 
-    $ sudo whoami
-    fudo <<< sudo whoami
-    fudo >>> /usr/bin/doas whoami
-    root
+You can disable this by setting the environment variable `FUDO_HIDE`:
 
-You can disable this by setting the environment variable FUDO_HIDE.
+```sh
+$ export FUDO_HIDE=1
+$ sudo whoami
+root
+```
 
-    $ export FUDO_HIDE=
-    $ sudo whoami
-    root
+The environment variables `SUDO_USER`, `SUDO_UID`, and `SUDO_GID` are always passed to `doas`. If you're running scripts or commands that rely on these variables, ensure `doas.conf` is configured to use them. For example:
 
-The environment variables `SUDO_USER`, `SUDO_UID`, and `SUDO_GID` are
-always passed to `doas`. If you're running scripts or commands that
-use these environment variables, `doas.conf` must be configured to use
-them. For example,
+```sh
+permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
+```
 
-    permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
+## Configuration
+
+To maximize compatibility, adjust your `doas.conf` to handle specific environment variables and behaviors previously managed by `sudo`. Here’s an example configuration:
+
+```sh
+permit keepenv user as root
+permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
+```
+
+With the above configurations, `doas` can replicate some of the environmental management provided by `sudo`.
+
+## Conclusion
+
+*fudo* aims to bridge the gap between `sudo` and `doas` by providing a flexible and configurable solution for systems transitioning to `doas`. With proper configuration, *fudo* can help maintain system operations that were originally dependent on `sudo`.
+
+For any issues or contributions, please refer to the project's repository.
+
+---
+
+By following these instructions and configurations, you should be able to seamlessly integrate *fudo* into your workflow, leveraging `doas` as a secure alternative to `sudo`.
