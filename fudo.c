@@ -173,7 +173,7 @@ char *which(const char *prog) {
 		snprintf(ppath, ppath_bytes, "%s/%s", path, prog);
 		
 		// If we can execute ppath, dup and return it
-		if (!access(ppath, R_OK | X_OK))
+		if (!access(ppath, X_OK))
 			return strdup(ppath);
 		
 		path = NULL;
