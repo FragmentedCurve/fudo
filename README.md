@@ -47,24 +47,3 @@ The environment variables `SUDO_USER`, `SUDO_UID`, and `SUDO_GID` are always pas
 ```sh
 permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
 ```
-
-## Configuration
-
-To maximize compatibility, adjust your `doas.conf` to handle specific environment variables and behaviors previously managed by `sudo`. Here’s an example configuration:
-
-```sh
-permit keepenv user as root
-permit setenv { SUDO_USER SUDO_UID SUDO_GID } user as root
-```
-
-With the above configurations, `doas` can replicate some of the environmental management provided by `sudo`.
-
-## Conclusion
-
-*fudo* aims to bridge the gap between `sudo` and `doas` by providing a flexible and configurable solution for systems transitioning to `doas`. With proper configuration, *fudo* can help maintain system operations that were originally dependent on `sudo`.
-
-For any issues or contributions, please refer to the project's repository.
-
----
-
-By following these instructions and configurations, you should be able to seamlessly integrate *fudo* into your workflow, leveraging `doas` as a secure alternative to `sudo`.
