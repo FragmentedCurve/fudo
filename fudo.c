@@ -1,18 +1,19 @@
 /*
  * Copyright 2023 Paco Pascal
- * 
+ * Copyright 2025 Luiz Antônio Rangel
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials provided
  *    with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -28,12 +29,17 @@
 
 #define _XOPEN_SOURCE 600
 
+#include <assert.h>
+#include <pwd.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <assert.h>
+
+#include <errno.h>
 
 #define alloca(x) __builtin_alloca(x)
 
@@ -97,7 +103,7 @@ struct option {
 	{ "-g",                 0,    IGNORE, 1 },
 	{ "--group=",           0,    IGNORE, 0 },
 	{ "-H",                 0,    IGNORE, 0 },
-	{"--set-home",          0,    IGNORE, 0 },	
+	{"--set-home",          0,    IGNORE, 0 },
 	{ "--help",             0,    IGNORE, 0 },
 	{ "-h",                 0,    IGNORE, 1 },
 	{ "--host=",            0,    IGNORE, 0 },
@@ -115,9 +121,9 @@ struct option {
 	{ "-P",                 0,    IGNORE, 0 },
 	{ "--preserve-groups",  0,    IGNORE, 0 },
 	{ "-p",                 0,    IGNORE, 1 },
-	{ "--prompt=",          0,    IGNORE, 0 }, 
+	{ "--prompt=",          0,    IGNORE, 0 },
 	{ "-R",                 0,    IGNORE, 1 },
-	{ "--chroot=",          0,    IGNORE, 0 }, 
+	{ "--chroot=",          0,    IGNORE, 0 },
 	{ "-S",                 0,    IGNORE, 0 },
 	{ "--stdin",            0,    IGNORE, 0 },
 	{ "-s",                 "-s", PASS,   0 }, // Execute user's shell
@@ -130,8 +136,8 @@ struct option {
 	{ "--user=",            "-u", PASS,   0 }, // Run as user
 	{ "-V",                 0,    IGNORE, 0 },
 	{ "--version",          0,    IGNORE, 0 },
-	{ "-v",                 0,    IGNORE, 0 },
-	{ "--validate",         0,    IGNORE, 0 },
+	{ "-v",                 "bogus",    PASS, 0 }, // Just validate if the
+	{ "--validate",         "bogus",    PASS, 0 }, // user can run doas
 
 	// --
 
@@ -148,22 +154,22 @@ struct option find_equiv(char *arg) {
 }
 
 char *which(const char *prog) {
-	char *epath = getenv("PATH");	
+	char *epath = getenv("PATH");
 	size_t epath_bytes = strlen(epath) + 1;
 	char *path = alloca(epath_bytes);
 	char *ppath = alloca(1);
 	size_t ppath_bytes = 1;
-	
+
 	// Clone $PATH to the stack
 	memcpy(path, epath, epath_bytes);
 
 	// Empty string
 	*ppath = 0;
-	
+
 	while ((path = strtok(path, ":"))) {
 		// Buf size of "%s/%s"
 		size_t needs = strlen(path) + strlen(prog) + 2;
-			
+
 		// Allocate more space if current buffer is too small
 		if (ppath_bytes < needs) {
 			ppath = alloca(needs - ppath_bytes);
@@ -171,11 +177,11 @@ char *which(const char *prog) {
 		}
 
 		snprintf(ppath, ppath_bytes, "%s/%s", path, prog);
-		
+
 		// If we can execute ppath, dup and return it
 		if (!access(ppath, X_OK))
 			return strdup(ppath);
-		
+
 		path = NULL;
 	}
 
@@ -186,7 +192,7 @@ char *which(const char *prog) {
 void show_cmd(char *prefix, int argc, char **argv) {
 	if (getenv("FUDO_HIDE"))
 		return;
-	
+
 	char *sep = "";
 	fprintf(stderr, "%s", prefix);
 	for (int i = 0; i < argc; i++) {
@@ -202,14 +208,16 @@ char *parse_long_flag(struct option opt, char *arg) {
 	// Is it a long form flag?
 	if (opt.sudo[len - 1] != '=')
 		return NULL;
-	
+
 	return arg + len;
 }
 
 int main(int argc, char **argv) {
+	bool fValidate = false;
+	int ecvalida = 0;
 	struct arglist al; // doas arguments
 	char *doas_prog = which("doas");
-	
+
 	if (!doas_prog) {
 		fprintf(stderr, "doas couldn't be found on your system.\n");
 		return -1;
@@ -217,7 +225,7 @@ int main(int argc, char **argv) {
 
 	arglist_init(&al);
 	arglist_insert(&al, doas_prog);
-	
+
 	// Display inputed sudo command
 	show_cmd("fudo <<< ", argc, argv);
 
@@ -225,14 +233,14 @@ int main(int argc, char **argv) {
 		char buf[128];
 		uid_t uid = getuid();
 		struct passwd *pw = getpwuid(uid);
-		
+
 		setenv("SUDO_USER", pw->pw_name, 1);
 		snprintf(buf, sizeof(buf), "%d", pw->pw_uid);
 		setenv("SUDO_UID", buf, 1);
 		snprintf(buf, sizeof(buf), "%d", pw->pw_gid);
 		setenv("SUDO_GID", buf, 1);
 	}
-	
+
 	{ // Process sudo arguments
 		int passthru = 0;
 		for (size_t i = 1; i < argc; i++) {
@@ -245,7 +253,7 @@ int main(int argc, char **argv) {
 				passthru = 1;
 				continue;
 			}
-	
+
 			struct option opt = find_equiv(argv[i]);
 			if (opt.attr == UNKNOWN) {
 				passthru = 1;
@@ -255,6 +263,33 @@ int main(int argc, char **argv) {
 
 			switch (opt.attr) {
 			case PASS: {
+				// Verify if we're not validating
+				// the user ability to sudo.
+				if (strcmp(opt.sudo, "-v") ||
+					strcmp(opt.sudo, "--validate")) {
+					fValidate = true;
+					int ec = 0;
+
+					pid_t pid = fork();
+					if (pid == -1) {
+validaexerr:
+						exit(-1); // Won't overthink
+							  // on this.
+					} else if (pid == 0) {
+						// doas use execvpe(), so we do not need
+						// to worry about passing the complete
+						// path for true(1).
+						char *_true[3] = { "doas", "true", NULL };
+						execv(doas_prog, _true);
+						_exit(1);
+					} else {
+						if (waitpid(pid, &ec, 0) == -1)
+							goto validaexerr;
+						ecvalida = WEXITSTATUS(ec);
+					}
+					break;
+				}
+
 				if (opt.doas)
 					arglist_insert(&al, opt.doas);
 				else
@@ -278,13 +313,15 @@ int main(int argc, char **argv) {
 			case EXIT:
 				exit(0);
 			}
-			
 		}
 	}
 
+	// Did we only validate?
+	if (fValidate && ((al.len - 1) == 1)) exit(ecvalida);
+
 	// Display the translated doas command
 	show_cmd("fudo >>> ", al.len - 1, al.args);
-	
+
 	execve(doas_prog, al.args, environ);
 
 	// Never reached
