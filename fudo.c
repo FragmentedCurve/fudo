@@ -39,8 +39,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <errno.h>
-
 #define alloca(x) __builtin_alloca(x)
 
 extern char **environ;
