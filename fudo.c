@@ -68,9 +68,10 @@ void arglist_insert(struct arglist *al, char *s) {
 
 enum {
 	UNKNOWN,
-	PASS,    // Pass argument to doas.
-	IGNORE,  // Ignore argument
-	EXIT     // Don't execute doas.
+	PASS,     // Pass argument to doas.
+	IGNORE,   // Ignore argument
+	EXIT,     // Don't execute doas.
+	VALIDATE, // Confirm that user can run doas (sudo -v).
 };
 
 struct option {
@@ -79,59 +80,59 @@ struct option {
 	int attr;
 	int nargs;
 } equiv[] = {
-	{ "-A",                 0,    IGNORE, 0 },
-	{ "--askpass",          0,    IGNORE, 0 },
-	{ "-B",                 0,    IGNORE, 0 },
-	{ "--bell",             0,    IGNORE, 0 },
-	{ "-b",                 "-n", PASS,   0 }, // Run in background
-	{ "--background",       "-n", PASS,   0 }, // Run in background
-	{ "-C",                 0,    IGNORE, 1 },
-	{ "--close-from=",      0,    IGNORE, 0 },
-	{ "-D",                 0,    IGNORE, 1 },
-	{ "--chdir=",           0,    IGNORE, 0 },
-	{ "-E",                 0,    IGNORE, 0 },
-	{ "--preserve-env",     0,    IGNORE, 0 },
-	{ "--preserve-env=",    0,    IGNORE, 0 },
-	{ "-e",                 0,    EXIT,   0 },
-	{ "--edit",             0,    EXIT,   0 },
-	{ "-g",                 0,    IGNORE, 1 },
-	{ "--group=",           0,    IGNORE, 0 },
-	{ "-H",                 0,    IGNORE, 0 },
-	{"--set-home",          0,    IGNORE, 0 },	
-	{ "--help",             0,    IGNORE, 0 },
-	{ "-h",                 0,    IGNORE, 1 },
-	{ "--host=",            0,    IGNORE, 0 },
-	{ "-i",                 "-s", PASS,   0 }, // Execute user's shell
-	{ "-K",                 0,    IGNORE, 0 },
-	{ "--remove-timestamp", 0,    IGNORE, 0 },
-	{ "-k",                 0,    IGNORE, 0 },
-	{ "--reset-timestamp",  0,    IGNORE, 0 },
-	{ "-l",                 0,    IGNORE, 0 },
-	{ "--list",             0,    IGNORE, 0 },
-	{ "-N",                 0,    IGNORE, 0 },
-	{ "--no-update",        0,    IGNORE, 0 },
-	{ "-n",                 "-n", PASS,   0 }, // Run in background
-	{ "--non-interactive",  "-n", PASS,   0 }, // Run in background
-	{ "-P",                 0,    IGNORE, 0 },
-	{ "--preserve-groups",  0,    IGNORE, 0 },
-	{ "-p",                 0,    IGNORE, 1 },
-	{ "--prompt=",          0,    IGNORE, 0 }, 
-	{ "-R",                 0,    IGNORE, 1 },
-	{ "--chroot=",          0,    IGNORE, 0 }, 
-	{ "-S",                 0,    IGNORE, 0 },
-	{ "--stdin",            0,    IGNORE, 0 },
-	{ "-s",                 "-s", PASS,   0 }, // Execute user's shell
-	{ "--shell",            "-s", PASS,   0 }, // Execute user's shell
-	{ "-U",                 0,    IGNORE, 1 },
-	{ "--other-user=",      0,    IGNORE, 0 },
-	{ "-T",                 0,    IGNORE, 1 },
-	{ "--command-timeout=", 0,    IGNORE, 0 },
-	{ "-u",                 "-u", PASS,   1 }, // Run as user
-	{ "--user=",            "-u", PASS,   0 }, // Run as user
-	{ "-V",                 0,    IGNORE, 0 },
-	{ "--version",          0,    IGNORE, 0 },
-	{ "-v",                 0,    IGNORE, 0 },
-	{ "--validate",         0,    IGNORE, 0 },
+	{ "-A",                 0,    IGNORE,   0 },
+	{ "--askpass",          0,    IGNORE,   0 },
+	{ "-B",                 0,    IGNORE,   0 },
+	{ "--bell",             0,    IGNORE,   0 },
+	{ "-b",                 "-n", PASS,     0 }, // Run in background
+	{ "--background",       "-n", PASS,     0 }, // Run in background
+	{ "-C",                 0,    IGNORE,   1 },
+	{ "--close-from=",      0,    IGNORE,   0 },
+	{ "-D",                 0,    IGNORE,   1 },
+	{ "--chdir=",           0,    IGNORE,   0 },
+	{ "-E",                 0,    IGNORE,   0 },
+	{ "--preserve-env",     0,    IGNORE,   0 },
+	{ "--preserve-env=",    0,    IGNORE,   0 },
+	{ "-e",                 0,    EXIT,     0 },
+	{ "--edit",             0,    EXIT,     0 },
+	{ "-g",                 0,    IGNORE,   1 },
+	{ "--group=",           0,    IGNORE,   0 },
+	{ "-H",                 0,    IGNORE,   0 },
+	{"--set-home",          0,    IGNORE,   0 },	
+	{ "--help",             0,    IGNORE,   0 },
+	{ "-h",                 0,    IGNORE,   1 },
+	{ "--host=",            0,    IGNORE,   0 },
+	{ "-i",                 "-s", PASS,     0 }, // Execute user's shell
+	{ "-K",                 0,    IGNORE,   0 },
+	{ "--remove-timestamp", 0,    IGNORE,   0 },
+	{ "-k",                 0,    IGNORE,   0 },
+	{ "--reset-timestamp",  0,    IGNORE,   0 },
+	{ "-l",                 0,    IGNORE,   0 },
+	{ "--list",             0,    IGNORE,   0 },
+	{ "-N",                 0,    IGNORE,   0 },
+	{ "--no-update",        0,    IGNORE,   0 },
+	{ "-n",                 "-n", PASS,     0 }, // Run in background
+	{ "--non-interactive",  "-n", PASS,     0 }, // Run in background
+	{ "-P",                 0,    IGNORE,   0 },
+	{ "--preserve-groups",  0,    IGNORE,   0 },
+	{ "-p",                 0,    IGNORE,   1 },
+	{ "--prompt=",          0,    IGNORE,   0 }, 
+	{ "-R",                 0,    IGNORE,   1 },
+	{ "--chroot=",          0,    IGNORE,   0 }, 
+	{ "-S",                 0,    IGNORE,   0 },
+	{ "--stdin",            0,    IGNORE,   0 },
+	{ "-s",                 "-s", PASS,     0 }, // Execute user's shell
+	{ "--shell",            "-s", PASS,     0 }, // Execute user's shell
+	{ "-U",                 0,    IGNORE,   1 },
+	{ "--other-user=",      0,    IGNORE,   0 },
+	{ "-T",                 0,    IGNORE,   1 },
+	{ "--command-timeout=", 0,    IGNORE,   0 },
+	{ "-u",                 "-u", PASS,     1 }, // Run as user
+	{ "--user=",            "-u", PASS,     0 }, // Run as user
+	{ "-V",                 0,    IGNORE,   0 },
+	{ "--version",          0,    IGNORE,   0 },
+	{ "-v",                 "",   VALIDATE, 0 },
+	{ "--validate",         "",   VALIDATE, 0 },
 
 	// --
 
@@ -273,14 +274,20 @@ int main(int argc, char **argv) {
 					}
 				}
 			} break;
+			case VALIDATE: {
+				// Let the OS cleaup al.args
+				arglist_init(&al);
+				arglist_insert(&al, doas_prog);
+				arglist_insert(&al, "true");
+				goto break_loop;
+			} break;
 			case IGNORE:
 				break;
 			case EXIT:
 				exit(0);
 			}
-			
 		}
-	}
+	} break_loop:
 
 	// Display the translated doas command
 	show_cmd("fudo >>> ", al.len - 1, al.args);
